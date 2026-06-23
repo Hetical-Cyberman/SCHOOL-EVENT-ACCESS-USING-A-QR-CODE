@@ -12,6 +12,7 @@ $registration = null;
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $title      = trim((string)($_POST['title'] ?? ''));
     $surname    = trim((string)($_POST['surname'] ?? ''));
     $middleName = trim((string)($_POST['middle_name'] ?? ''));
     $firstName  = trim((string)($_POST['first_name'] ?? ''));
@@ -21,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $numWards   = trim((string)($_POST['num_wards'] ?? ''));
     $className  = trim((string)($_POST['class_name'] ?? ''));
 
+    if ($title === '')      $errors[] = 'Title is required.';
     if ($surname === '')    $errors[] = 'Surname is required.';
     if ($firstName === '')  $errors[] = 'First name is required.';
     if ($phone === '')      $errors[] = 'Phone number is required.';
@@ -28,7 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($className === '')  $errors[] = 'Class of ward(s) is required.';
 
     if (empty($errors)) {
-        $fullName = $surname . ' ' . ($middleName !== '' ? $middleName . ' ' : '') . $firstName;
+        $nameOnly = $surname . ' ' . ($middleName !== '' ? $middleName . ' ' : '') . $firstName;
+        $fullName = $title . ' ' . $nameOnly;
         $regId    = generate_parent_registration_id($pdo);
         $qrToken  = generate_qr_token();
         $verifyUrl = current_url_base() . '/verify.php?token=' . rawurlencode($qrToken);
@@ -361,11 +364,22 @@ $ss3Classes = ['SS3A', 'SS3B', 'SS3C', 'SS3D', 'SS3E', 'SS3F', 'SS3 Science', 'S
 
             <form method="post" action="parent_register.php" id="regForm">
                 <div class="form-section-title">Parent / Guardian Information</div>
-                <div class="form-row three">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Title <span class="required">*</span></label>
+                        <select name="title" required>
+                            <option value="">-- Select Title --</option>
+                            <?php foreach (['MR.', 'MRS.', 'MR. & MRS.', 'CHIEF', 'DR.'] as $option): ?>
+                                <option value="<?= e($option) ?>" <?= (($_POST['title'] ?? '') === $option) ? 'selected' : '' ?>><?= e($option) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label>Surname <span class="required">*</span></label>
                         <input name="surname" placeholder="e.g. Okafor" required value="<?= e($_POST['surname'] ?? '') ?>">
                     </div>
+                </div>
+                <div class="form-row" style="margin-top:16px">
                     <div class="form-group">
                         <label>Middle Name <span class="optional">(optional)</span></label>
                         <input name="middle_name" placeholder="e.g. Chukwuemeka" value="<?= e($_POST['middle_name'] ?? '') ?>">
@@ -509,77 +523,76 @@ function getQRCodeDataUrl() {
 
 async function downloadQRPDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: 'a5' });
+    const doc = new jsPDF({ unit: 'mm', orientation: 'portrait', format: [54, 85.6] });
 
-    // Header background
+    const pageWidth = 54;
+    const pageHeight = 85.6;
+
+    // CR80 portrait ID card: 54 x 85.6 mm.
     doc.setFillColor(26, 58, 107);
-    doc.rect(0, 0, 148, 40, 'F');
+    doc.rect(0, 0, pageWidth, 16, 'F');
 
-    // School name
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text('REDEEMERS INTERNATIONAL', 74, 14, { align: 'center' });
-    doc.text('GROUP OF SCHOOLS', 74, 21, { align: 'center' });
-
-    doc.setFontSize(9);
+    doc.setFontSize(5.7);
+    doc.text('REDEEMERS INTERNATIONAL', pageWidth / 2, 5.4, { align: 'center' });
+    doc.text('GROUP OF SCHOOLS', pageWidth / 2, 8.8, { align: 'center' });
+    doc.setFontSize(4.7);
     doc.setFont('helvetica', 'normal');
-    doc.text('EVENT ENTRY PASS', 74, 30, { align: 'center' });
-
-    doc.setFontSize(11);
+    doc.text('EVENT ENTRY PASS', pageWidth / 2, 12.1, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text(regData.event, 74, 37, { align: 'center' });
+    doc.text(regData.event, pageWidth / 2, 14.7, { align: 'center' });
 
-    // QR code generated locally so it embeds correctly in downloaded PDFs.
     try {
         const imgData = await getQRCodeDataUrl();
-        doc.addImage(imgData, 'PNG', 34, 48, 80, 80);
+        doc.addImage(imgData, 'PNG', 12, 19, 30, 30);
     } catch(e) {
         doc.setTextColor(180, 0, 0);
-        doc.setFontSize(10);
-        doc.text('QR code could not be generated. Please try again.', 74, 88, { align: 'center' });
+        doc.setFontSize(4.5);
+        doc.text('QR code could not be generated.', pageWidth / 2, 34, { align: 'center' });
     }
 
-    // Details
     doc.setTextColor(30, 42, 58);
-    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('REGISTRATION DETAILS', 74, 138, { align: 'center' });
-
+    doc.setFontSize(5.2);
+    doc.text('REGISTRATION DETAILS', pageWidth / 2, 53, { align: 'center' });
     doc.setDrawColor(200);
-    doc.line(14, 141, 134, 141);
+    doc.line(6, 55, 48, 55);
 
     const details = [
-        ['Registration ID:', regData.id],
-        ['Parent Name:', regData.name],
+        ['Reg. ID:', regData.id],
+        ['Name:', regData.name],
         ['Phone:', regData.phone],
-        ['No. of Wards:', regData.wards.toString()],
+        ['Wards:', regData.wards.toString()],
         ['Class:', regData.className],
     ];
 
-    let y = 150;
+    let y = 59;
     details.forEach(([label, value]) => {
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(90, 106, 126);
-        doc.text(label, 16, y);
+        doc.setFontSize(4.2);
+        doc.text(label, 6, y);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(30, 42, 58);
-        doc.text(value, 70, y);
-        y += 9;
+        const lines = doc.splitTextToSize(String(value || '-'), 31);
+        doc.text(lines.slice(0, 2), 20, y);
+        y += Math.max(4.8, lines.slice(0, 2).length * 4.2);
     });
 
-    // Footer
     doc.setFillColor(26, 58, 107);
-    doc.rect(0, 195, 148, 15, 'F');
+    doc.rect(0, 78, pageWidth, pageHeight - 78, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
+    doc.setFontSize(3.8);
     doc.setFont('helvetica', 'normal');
-    doc.text('Please present this QR pass at the event entrance.', 74, 203, { align: 'center' });
-    doc.text('Redeemers International Group of Schools', 74, 208, { align: 'center' });
+    doc.text('Present this QR pass at the event entrance.', pageWidth / 2, 81.2, { align: 'center' });
+    doc.text('Redeemers International Group of Schools', pageWidth / 2, 84, { align: 'center' });
 
     doc.save('RIGS-Event-Pass-' + regData.id + '.pdf');
+    window.setTimeout(() => {
+        window.location.href = 'index.php';
+    }, 1200);
 }
-
 renderQRCode();
 
 function closePopup() {

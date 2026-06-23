@@ -41,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <main class="shell narrow">
         <header class="topbar">
             <h1 class="brand"><?= e(SCHOOL_NAME) ?></h1>
+            <nav class="nav" aria-label="Login navigation">
+                <a class="secondary" href="index.php">Back to Home</a>
+            </nav>
         </header>
 
         <section class="panel auth-panel">
